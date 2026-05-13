@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>驗證規則說明 — FHIR R4 驗證器</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #f8fafc; color: #1e293b; min-height: 100vh; }
+  a { color: #4f46e5; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+
+  /* Header */
+  .header { margin-bottom: 2rem; }
+  .header h1 { font-size: 1.6rem; font-weight: 700; }
+  .header p  { color: #64748b; font-size: .9rem; margin-top: .3rem; }
+  .header .links { font-size: .82rem; margin-top: .5rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+
+  /* Severity legend */
+  .legend { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 2rem; }
+  .leg-item { display: flex; align-items: flex-start; gap: .5rem; background: #fff;
+              border: 1px solid #e2e8f0; border-radius: .5rem; padding: .6rem .9rem;
+              flex: 1 1 220px; }
+  .leg-badge { padding: .2rem .6rem; border-radius: 999px; font-size: .75rem; font-weight: 700;
+               white-space: nowrap; margin-top: .1rem; }
+  .bg-err  { background: #fee2e2; color: #991b1b; }
+  .bg-warn { background: #fef9c3; color: #92400e; }
+  .bg-info { background: #dbeafe; color: #1e40af; }
+  .leg-text { font-size: .82rem; }
+  .leg-text strong { display: block; margin-bottom: .2rem; }
+
+  /* Section */
+  .section { margin-bottom: 2.5rem; }
+  .section-h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;
+                padding-bottom: .4rem; border-bottom: 2px solid #e2e8f0; }
+  .section-h3 { font-size: .95rem; font-weight: 600; color: #334155;
+                margin: 1.2rem 0 .5rem; }
+
+  /* Resource type intro */
+  .res-intro { font-size: .85rem; color: #64748b; margin-bottom: .75rem; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-size: .82rem;
+          background: #fff; border: 1px solid #e2e8f0; border-radius: .5rem;
+          overflow: hidden; margin-bottom: 1rem; }
+  thead { background: #f1f5f9; }
+  th { text-align: left; padding: .5rem .75rem; color: #475569; font-weight: 600;
+       font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
+  td { padding: .5rem .75rem; border-top: 1px solid #f1f5f9; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  code { font-family: "SF Mono", "Fira Code", monospace; font-size: .8rem;
+         background: #f1f5f9; padding: .1rem .3rem; border-radius: .2rem; }
+  .sev { padding: .15rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+
+  /* Flow diagram */
+  .flow { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: 1.5rem; }
+  .flow-step { background: #fff; border: 1px solid #e2e8f0; border-radius: .5rem;
+               padding: .75rem 1rem; flex: 1 1 160px; font-size: .82rem; }
+  .flow-step .num { font-size: .7rem; color: #94a3b8; font-weight: 600;
+                    text-transform: uppercase; letter-spacing: .05em; }
+  .flow-step .name { font-weight: 600; margin: .2rem 0; }
+  .flow-step .desc { color: #64748b; font-size: .78rem; }
+  .flow-arrow { display: flex; align-items: center; padding: 0 .25rem;
+                color: #94a3b8; font-size: 1rem; }
+
+  /* Info box */
+  .info-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: .5rem;
+              padding: .75rem 1rem; font-size: .83rem; color: #1e40af; margin-bottom: 1rem; }
+  .info-box strong { display: block; margin-bottom: .25rem; }
+
+  @media (max-width: 560px) {
+    .flow-arrow { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>📋 驗證規則說明</h1>
+    <p>FHIR R4 驗證器檢查的所有項目與規則清單</p>
+    <div class="links">
+      <a href="index.html">← 回到驗證器</a>
+      <a href="https://github.com/voho0000/fhir-tw-validator" target="_blank">GitHub</a>
+      <a href="https://hl7.org/fhir/R4/" target="_blank">FHIR R4 規範</a>
+    </div>
+  </div>
+
+  <!-- Severity legend -->
+  <div class="section">
+    <div class="section-h2">嚴重度說明</div>
+    <div class="legend">
+      <div class="leg-item">
+        <span class="leg-badge bg-err">ERROR</span>
+        <div class="leg-text">
+          <strong>結構錯誤</strong>
+          資源不符合 FHIR R4 規範，SMART App 或 FHIR 伺服器可能無法正常讀取。應修正。
+        </div>
+      </div>
+      <div class="leg-item">
+        <span class="leg-badge bg-warn">WARNING</span>
+        <div class="leg-text">
+          <strong>不完整</strong>
+          資源可以被解析，但缺少建議欄位或不符合最佳實務。建議修正。
+        </div>
+      </div>
+      <div class="leg-item">
+        <span class="leg-badge bg-info">INFO</span>
+        <div class="leg-text">
+          <strong>提示</strong>
+          台灣 NHI 特有建議，或代碼未收錄在已知集合中。可依需求決定是否處理。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Validation flow -->
+  <div class="section">
+    <div class="section-h2">驗證流程</div>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="num">Step 1</div>
+        <div class="name">結構驗證</div>
+        <div class="desc">檢查每種資源的必填欄位、cardinality 與值域綁定</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="num">Step 2</div>
+        <div class="name">術語驗證</div>
+        <div class="desc">離線比對 LOINC、HL7 value sets、UCUM 單位</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="num">Step 3</div>
+        <div class="name">台灣 NHI 規則</div>
+        <div class="desc">身分證格式、醫令代碼、健保藥品代碼、時區</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="num">Step 4</div>
+        <div class="name">跨資源完整性</div>
+        <div class="desc">Patient reference 是否存在、DR→Obs 參照是否解析</div>
+      </div>
+    </div>
+    <div class="info-box">
+      <strong>離線優先設計</strong>
+      所有驗證邏輯均在瀏覽器本地執行，不呼叫任何外部 API。LOINC 代碼集、HL7 value sets 全部內嵌於程式中，資料不會離開你的裝置。
+    </div>
+  </div>
+
+  <!-- Patient -->
+  <div class="section">
+    <div class="section-h2">Patient（病人）</div>
+    <div class="res-intro">基本病人身份資訊，是所有其他資源的參照根基。</div>
+    <table>
+      <thead><tr><th>Rule ID</th><th>檢查項目</th><th>說明</th><th>嚴重度</th></tr></thead>
+      <tbody>
+        <tr><td><code>pat-identifier-required</code></td><td><code>identifier</code> 非空</td><td>必須至少一個識別碼（身分證號、病歷號），FHIR 接收方才能辨識病人</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>pat-name-required</code></td><td><code>name</code> 非空</td><td>必須包含至少一個姓名</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>pat-gender-invalid</code></td><td><code>gender</code> 值域</td><td>只允許 male、female、other、unknown</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>pat-name-use-invalid</code></td><td><code>name[*].use</code> 值域</td><td>必須在 HL7 name-use value set 內（usual/official/temp/nickname/anonymous/old/maiden）</td><td><span class="sev bg-warn">WARNING</span></td></tr>
+        <tr><td><code>pat-birthdate-format</code></td><td><code>birthDate</code> 格式</td><td>必須符合 YYYY-MM-DD，不能使用民國年</td><td><span class="sev bg-warn">WARNING</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Observation -->
+  <div class="section">
+    <div class="section-h2">Observation（觀察值 / 檢驗數值）</div>
+    <div class="res-intro">個別的檢驗數值、生命徵象等，是資料量最多的資源類型。</div>
+    <table>
+      <thead><tr><th>Rule ID</th><th>檢查項目</th><th>說明</th><th>嚴重度</th></tr></thead>
+      <tbody>
+        <tr><td><code>obs-status-required</code></td><td><code>status</code> 必填且值域正確</td><td>表示觀察值狀態（final/preliminary/amended 等），必填</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>obs-code-required</code></td><td><code>code.coding</code> 非空</td><td>至少一個 coding 標識此觀察項目（通常為 LOINC）</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>obs-subject-required</code></td><td><code>subject.reference</code> 格式</td><td>必須格式為 <code>Patient/&lt;id&gt;</code></td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>obs-comparator-invalid</code></td><td><code>valueQuantity.comparator</code> 值域</td><td>只允許 &lt;、&lt;=、&gt;=、&gt;</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>obs-refrange-numeric</code></td><td><code>referenceRange.low/high.value</code> 為數字</td><td>參考區間的上下界必須是數值</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>obs-category-missing</code></td><td><code>category</code> 存在</td><td>建議填寫分類（如 laboratory、vital-signs），方便篩選</td><td><span class="sev bg-warn">WARNING</span></td></tr>
+        <tr><td><code>obs-value-missing</code></td><td>至少一個 <code>value[x]</code> 或 <code>dataAbsentReason</code></td><td>若無數值應填寫缺值原因</td><td><span class="sev bg-warn">WARNING</span></td></tr>
+        <tr><td><code>obs-ucum-system</code></td><td><code>valueQuantity.system</code> 為 UCUM</td><td>應填 <code>http://unitsofmeasure.org</code></td><td><span class="sev bg-warn">WARNING</span></td></tr>
+        <tr><td><code>obs-ucum-code-empty</code></td><td><code>valueQuantity.code</code> 非空</td><td>指定 UCUM system 時，單位代碼不能為空</td><td><span class="sev bg-warn">WARNING</span></td></tr>
+        <tr><td><code>obs-loinc-unknown</code></td><td>LOINC code 已知</td><td>LOINC 代碼不在驗證器收錄集，建議至 loinc.org 確認</td><td><span class="sev bg-info">INFO</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- DiagnosticReport -->
+  <div class="section">
+    <div class="section-h2">DiagnosticReport（檢驗報告）</div>
+    <div class="res-intro">彙整多個 Observation 的檢驗報告（如一次抽血的完整結果）。</div>
+    <table>
+      <thead><tr><th>Rule ID</th><th>檢查項目</th><th>說明</th><th>嚴重度</th></tr></thead>
+      <tbody>
+        <tr><td><code>dr-status-required</code></td><td><code>status</code> 必填且值域正確</td><td>必填，表示報告狀態</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>dr-code-required</code></td><td><code>code</code> 存在</td><td>標識報告類型，必填</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>dr-subject-required</code></td><td><code>subject.reference</code> 格式</td><td>必須格式為 <code>Patient/&lt;id&gt;</code></td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>dr-issued-missing</code></td><td><code>issued</code> 存在（status=final）</td><td>已完成的報告應記錄出具時間；EHR-FHIR-BRIDGE 舊版 mapper 已知問題，新版已修正</td><td><span class="sev bg-warn">WARNING</span></td></tr>
+        <tr><td><code>dr-result-ref-invalid</code></td><td><code>result[*].reference</code> 格式</td><td>必須格式為 <code>Observation/&lt;id&gt;</code></td><td><span class="sev bg-warn">WARNING</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- MedicationRequest -->
+  <div class="section">
+    <div class="section-h2">MedicationRequest（藥囑）</div>
+    <div class="res-intro">開立的藥物處方，包含藥品代碼、用法用量。</div>
+    <table>
+      <thead><tr><th>Rule ID</th><th>檢查項目</th><th>說明</th><th>嚴重度</th></tr></thead>
+      <tbody>
+        <tr><td><code>med-status-required</code></td><td><code>status</code> 必填且值域正確</td><td>必填（active/completed/cancelled 等）</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>med-intent-required</code></td><td><code>intent</code> 必填且值域正確</td><td>必填（order/plan 等），表示藥囑性質</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>med-medication-required</code></td><td><code>medicationCodeableConcept</code> 有 coding</td><td>必填，標識藥品</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>med-subject-required</code></td><td><code>subject.reference</code> 格式</td><td>必須格式為 <code>Patient/&lt;id&gt;</code></td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>med-dosage-text-missing</code></td><td><code>dosageInstruction[*].text</code> 存在</td><td>建議填寫文字用藥說明，方便人工閱讀</td><td><span class="sev bg-warn">WARNING</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Condition -->
+  <div class="section">
+    <div class="section-h2">Condition（診斷）</div>
+    <div class="res-intro">病人的疾病診斷記錄（通常含 ICD-10 代碼）。</div>
+    <table>
+      <thead><tr><th>Rule ID</th><th>檢查項目</th><th>說明</th><th>嚴重度</th></tr></thead>
+      <tbody>
+        <tr><td><code>con-status-required</code></td><td><code>clinicalStatus</code> 存在且有效</td><td>必填，表示疾病目前狀態（active/resolved 等）</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>con-code-required</code></td><td><code>code</code> 存在</td><td>必填，標識診斷（ICD-10）</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>con-subject-required</code></td><td><code>subject.reference</code> 格式</td><td>必須格式為 <code>Patient/&lt;id&gt;</code></td><td><span class="sev bg-err">ERROR</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- AllergyIntolerance -->
+  <div class="section">
+    <div class="section-h2">AllergyIntolerance（過敏）</div>
+    <div class="res-intro">病人的過敏或不耐受記錄。</div>
+    <table>
+      <thead><tr><th>Rule ID</th><th>檢查項目</th><th>說明</th><th>嚴重度</th></tr></thead>
+      <tbody>
+        <tr><td><code>ai-patient-required</code></td><td><code>patient.reference</code> 格式</td><td>必須格式為 <code>Patient/&lt;id&gt;</code></td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>ai-code-required</code></td><td><code>code</code> 存在</td><td>必填，標識過敏原</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>ai-category-invalid</code></td><td><code>category[*]</code> 值域</td><td>只允許 food、medication、environment、biologic</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>ai-criticality-invalid</code></td><td><code>criticality</code> 值域</td><td>只允許 high、low、unable-to-assess</td><td><span class="sev bg-err">ERROR</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Encounter -->
+  <div class="section">
+    <div class="section-h2">Encounter（就醫紀錄）</div>
+    <div class="res-intro">病人一次就醫事件（門診、住院、急診等）。</div>
+    <table>
+      <thead><tr><th>Rule ID</th><th>檢查項目</th><th>說明</th><th>嚴重度</th></tr></thead>
+      <tbody>
+        <tr><td><code>enc-status-required</code></td><td><code>status</code> 必填且值域正確</td><td>必填（planned/in-progress/finished 等）</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>enc-class-required</code></td><td><code>class.code</code> 存在</td><td>必填，就醫類別代碼（AMB 門診、IMP 住院、EMER 急診）</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>enc-subject-required</code></td><td><code>subject.reference</code> 格式</td><td>必須格式為 <code>Patient/&lt;id&gt;</code></td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>enc-period-start-missing</code></td><td><code>period.start</code> 存在</td><td>建議填寫就醫開始時間</td><td><span class="sev bg-warn">WARNING</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Procedure -->
+  <div class="section">
+    <div class="section-h2">Procedure（醫療處置）</div>
+    <div class="res-intro">執行過的醫療處置或手術。</div>
+    <table>
+      <thead><tr><th>Rule ID</th><th>檢查項目</th><th>說明</th><th>嚴重度</th></tr></thead>
+      <tbody>
+        <tr><td><code>proc-status-required</code></td><td><code>status</code> 必填且值域正確</td><td>必填（completed/in-progress 等）</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>proc-code-required</code></td><td><code>code</code> 存在</td><td>必填，標識醫療處置類型</td><td><span class="sev bg-err">ERROR</span></td></tr>
+        <tr><td><code>proc-subject-required</code></td><td><code>subject.reference</code> 格式</td><td>必須格式為 <code>Patient/&lt;id&gt;</code></td><td><span class="sev bg-err">ERROR</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Taiwan NHI -->
+  <div class="section">
+    <div class="section-h2">台灣 NHI 特有規則</div>
+    <div class="res-intro">針對台灣健保資料的額外驗證，適用於 EHR-FHIR-BRIDGE 產生的資源。</div>
+    <table>
+      <thead><tr><th>Rule ID</th><th>適用資源</th><th>檢查項目</th><th>說明</th><th>嚴重度</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>tw-nhi-id-format</code></td>
+          <td>Patient</td>
+          <td>身分證格式</td>
+          <td>10 碼 identifier：本國籍 <code>^[A-Z][12]\d{8}$</code>，外籍居留 <code>^[A-Z][89]\d{8}$</code>。醫院病歷號可忽略此警告。</td>
+          <td><span class="sev bg-warn">WARNING</span></td>
+        </tr>
+        <tr>
+          <td><code>tw-nhi-lab-code-format</code></td>
+          <td>Observation</td>
+          <td>醫令代碼格式</td>
+          <td><code>urn:oid:nhi.lab.code</code> 應符合 <code>^\d{4,6}[A-Z]$</code>（如 <code>09001C</code>）</td>
+          <td><span class="sev bg-warn">WARNING</span></td>
+        </tr>
+        <tr>
+          <td><code>tw-nhi-med-code-format</code></td>
+          <td>MedicationRequest</td>
+          <td>健保藥品代碼格式</td>
+          <td><code>urn:oid:nhi.medication.code</code> 應符合 <code>^[A-Z]{1,3}[0-9A-Z]{7,9}$</code>（含舊式 G0 結尾，如 <code>AC346701G0</code>）</td>
+          <td><span class="sev bg-info">INFO</span></td>
+        </tr>
+        <tr>
+          <td><code>tw-timezone-missing</code></td>
+          <td>所有資源</td>
+          <td>時區標示</td>
+          <td>日期時間欄位應包含 <code>+08:00</code> 時區（如 <code>2024-01-01T08:00:00+08:00</code>），避免跨時區解讀錯誤</td>
+          <td><span class="sev bg-warn">WARNING</span></td>
+        </tr>
+        <tr>
+          <td><code>tw-meta-source</code></td>
+          <td>所有資源</td>
+          <td>資料來源標記</td>
+          <td><code>meta.source</code> 應為 <code>ehr-fhir-bridge/scraper</code>；非本橋接器產生的資料可忽略</td>
+          <td><span class="sev bg-info">INFO</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Reference Integrity -->
+  <div class="section">
+    <div class="section-h2">跨資源完整性（批次驗證）</div>
+    <div class="res-intro">當上傳多個資源時，驗證器會額外檢查資源間的參照關係是否一致。</div>
+    <table>
+      <thead><tr><th>Rule ID</th><th>檢查項目</th><th>說明</th><th>嚴重度</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>ref-patient-dangling</code></td>
+          <td>Patient reference 可解析</td>
+          <td><code>subject.reference = Patient/X</code> 中的 Patient X 必須存在於這批資料中，否則為懸空參照</td>
+          <td><span class="sev bg-err">ERROR</span></td>
+        </tr>
+        <tr>
+          <td><code>ref-obs-dangling</code></td>
+          <td>DR→Obs reference 可解析</td>
+          <td><code>DiagnosticReport.result[].reference</code> 指向的 Observation 必須存在於這批資料中</td>
+          <td><span class="sev bg-warn">WARNING</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Supported resources -->
+  <div class="section">
+    <div class="section-h2">支援的資源類型</div>
+    <p style="font-size:.85rem;color:#475569;margin-bottom:.75rem">
+      以下資源類型有完整的結構驗證。其他類型的資源仍會檢查基本欄位（<code>id</code>、台灣 NHI 規則、參照完整性），但不會驗證特定欄位。
+    </p>
+    <div style="display:flex;flex-wrap:wrap;gap:.4rem">
+      <code style="font-size:.85rem;background:#f1f5f9;padding:.3rem .6rem;border-radius:.3rem">Patient</code>
+      <code style="font-size:.85rem;background:#f1f5f9;padding:.3rem .6rem;border-radius:.3rem">Observation</code>
+      <code style="font-size:.85rem;background:#f1f5f9;padding:.3rem .6rem;border-radius:.3rem">DiagnosticReport</code>
+      <code style="font-size:.85rem;background:#f1f5f9;padding:.3rem .6rem;border-radius:.3rem">MedicationRequest</code>
+      <code style="font-size:.85rem;background:#f1f5f9;padding:.3rem .6rem;border-radius:.3rem">Condition</code>
+      <code style="font-size:.85rem;background:#f1f5f9;padding:.3rem .6rem;border-radius:.3rem">AllergyIntolerance</code>
+      <code style="font-size:.85rem;background:#f1f5f9;padding:.3rem .6rem;border-radius:.3rem">Encounter</code>
+      <code style="font-size:.85rem;background:#f1f5f9;padding:.3rem .6rem;border-radius:.3rem">Procedure</code>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
