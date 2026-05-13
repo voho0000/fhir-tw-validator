@@ -720,9 +720,9 @@ function renderResults(reports, filename) {
     </div>`;
   }
 
-  // Issue sections — grouped by rule for warning/info, per-resource for error
+  // Issue sections — always render all three; active severity starts expanded, others collapsed
   ["error","warning","info"].forEach(sev => {
-    if (!meetsThreshold(sev)) return;
+    const autoOpen = meetsThreshold(sev); // expanded when at or above selected severity
 
     // Collect all issues of this severity across all reports
     const allIssues = [];
@@ -731,14 +731,16 @@ function renderResults(reports, filename) {
         allIssues.push({ rep, iss });
       });
     });
-    if (!allIssues.length) return;
+    if (!allIssues.length) return; // skip section only when truly no issues
 
     const label = sev === "error" ? "ERROR" : sev === "warning" ? "WARNING" : "INFO";
     const affectedResources = new Set(allIssues.map(x => `${x.rep.resourceType}/${x.rep.resourceId}`)).size;
-    html += `<div class="section-title ${sev}">${label} — ${affectedResources} 筆資源 / ${allIssues.length} 個問題</div>`;
+    const openAttr  = autoOpen ? " open" : "";
+    const chevIcon  = autoOpen ? "▲" : "▼";
+    html += `<div class="section-title ${sev}" style="cursor:pointer" onclick="toggleSection('section-${sev}')">${label} — ${affectedResources} 筆資源 / ${allIssues.length} 個問題 <span id="section-${sev}-chev" style="font-size:.7rem">${chevIcon}</span></div>
+             <div id="section-${sev}" style="display:${autoOpen ? 'block' : 'none'}">`;
 
     if (sev === "error") {
-      // Per-resource cards for errors (usually few)
       const matching = reports.filter(r => r.issues.some(i => i.severity === "error"));
       matching.forEach((rep, idx) => {
         const sevIssues = rep.issues.filter(i => i.severity === "error");
@@ -756,7 +758,6 @@ function renderResults(reports, filename) {
           </div>`;
       });
     } else {
-      // Group by rule for warnings/info (many identical issues → one card per rule)
       const byRule = {};
       allIssues.forEach(({ rep, iss }) => {
         if (!byRule[iss.rule]) byRule[iss.rule] = { iss, resources: [] };
@@ -785,9 +786,19 @@ function renderResults(reports, filename) {
           </div>`;
       });
     }
+
+    html += `</div>`; // close section wrapper
   });
 
   document.getElementById("results").innerHTML = html;
+}
+
+function toggleSection(id) {
+  const el = document.getElementById(id);
+  const chev = document.getElementById(id + "-chev");
+  const open = el.style.display === "none";
+  el.style.display = open ? "block" : "none";
+  chev.textContent = open ? "▲" : "▼";
 }
 
 function toggleCard(id) {
