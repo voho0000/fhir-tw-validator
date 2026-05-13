@@ -642,6 +642,18 @@ function processFile(file) {
 /* ─────────────────────────────────────────────────────────────────────────
    RENDER
    ───────────────────────────────────────────────────────────────────────── */
+function issueHtml(iss) {
+  const sevClass = iss.severity==="error" ? "badge-error" : iss.severity==="warning" ? "badge-warn" : "badge-ok";
+  return `<div class="issue">
+    <div class="issue-top">
+      <span class="issue-sev ${sevClass}" style="font-size:.7rem;padding:.1rem .35rem">${iss.severity.toUpperCase()}</span>
+      <code class="issue-path">${escHtml(iss.path)}</code>
+      <span class="issue-rule">[${escHtml(iss.rule)}]</span>
+    </div>
+    <div class="issue-msg">${escHtml(iss.message)}</div>
+  </div>`;
+}
+
 function renderResults(reports, filename) {
   const total    = reports.length;
   const valid    = reports.filter(r => !r.issues.some(i => i.severity === "error")).length;
@@ -708,45 +720,71 @@ function renderResults(reports, filename) {
     </div>`;
   }
 
-  // Issue sections
+  // Issue sections — grouped by rule for warning/info, per-resource for error
   ["error","warning","info"].forEach(sev => {
     if (!meetsThreshold(sev)) return;
-    const matching = reports.filter(r =>
-      r.issues.some(i => i.severity === sev && meetsThreshold(i.severity))
-    );
-    if (!matching.length) return;
-    const label = sev === "error" ? "ERROR" : sev === "warning" ? "WARNING" : "INFO";
-    const totalIssues = matching.reduce((s,r) =>
-      s + r.issues.filter(i => i.severity === sev).length, 0);
-    html += `<div class="section-title ${sev}">${label} — ${matching.length} 筆資源 / ${totalIssues} 個問題</div>`;
-    matching.forEach((rep, idx) => {
-      const topSev = rep.issues[0]?.severity || "info";
-      const sevIssues = rep.issues.filter(i => i.severity === sev);
-      if (!sevIssues.length) return;
-      const badgesHtml = ["error","warning","info"].map(s => {
-        const cnt = rep.issues.filter(i=>i.severity===s).length;
-        return cnt ? `<span class="mini-badge mb-${s}">${cnt}</span>` : "";
-      }).join("");
-      const cardId = `card-${sev}-${idx}`;
-      html += `
-        <div class="card ${topSev}" id="${cardId}">
-          <div class="card-header" onclick="toggleCard('${cardId}')">
-            <span class="card-id">${escHtml(rep.resourceType)}/${escHtml(rep.resourceId).slice(0,16)}</span>
-            <span class="card-badges">${badgesHtml}<span class="chevron" id="${cardId}-chev">▲</span></span>
-          </div>
-          <div class="card-body open" id="${cardId}-body">
-            ${sevIssues.map(iss => `
-              <div class="issue">
-                <div class="issue-top">
-                  <span class="issue-sev ${iss.severity==="error"?"badge-error":iss.severity==="warning"?"badge-warn":"badge-ok"}" style="font-size:.7rem;padding:.1rem .35rem">${iss.severity.toUpperCase()}</span>
-                  <code class="issue-path">${escHtml(iss.path)}</code>
-                  <span class="issue-rule">[${escHtml(iss.rule)}]</span>
-                </div>
-                <div class="issue-msg">${escHtml(iss.message)}</div>
-              </div>`).join("")}
-          </div>
-        </div>`;
+
+    // Collect all issues of this severity across all reports
+    const allIssues = [];
+    reports.forEach(rep => {
+      rep.issues.filter(i => i.severity === sev).forEach(iss => {
+        allIssues.push({ rep, iss });
+      });
     });
+    if (!allIssues.length) return;
+
+    const label = sev === "error" ? "ERROR" : sev === "warning" ? "WARNING" : "INFO";
+    const affectedResources = new Set(allIssues.map(x => `${x.rep.resourceType}/${x.rep.resourceId}`)).size;
+    html += `<div class="section-title ${sev}">${label} — ${affectedResources} 筆資源 / ${allIssues.length} 個問題</div>`;
+
+    if (sev === "error") {
+      // Per-resource cards for errors (usually few)
+      const matching = reports.filter(r => r.issues.some(i => i.severity === "error"));
+      matching.forEach((rep, idx) => {
+        const sevIssues = rep.issues.filter(i => i.severity === "error");
+        if (!sevIssues.length) return;
+        const cardId = `card-${sev}-${idx}`;
+        html += `
+          <div class="card err" id="${cardId}">
+            <div class="card-header" onclick="toggleCard('${cardId}')">
+              <span class="card-id">${escHtml(rep.resourceType)}/${escHtml(rep.resourceId)}</span>
+              <span class="card-badges"><span class="mini-badge mb-err">${sevIssues.length}</span><span class="chevron" id="${cardId}-chev">▲</span></span>
+            </div>
+            <div class="card-body open" id="${cardId}-body">
+              ${sevIssues.map(iss => issueHtml(iss)).join("")}
+            </div>
+          </div>`;
+      });
+    } else {
+      // Group by rule for warnings/info (many identical issues → one card per rule)
+      const byRule = {};
+      allIssues.forEach(({ rep, iss }) => {
+        if (!byRule[iss.rule]) byRule[iss.rule] = { iss, resources: [] };
+        byRule[iss.rule].resources.push({ type: rep.resourceType, id: rep.resourceId });
+      });
+      Object.entries(byRule).forEach(([rule, { iss, resources }], idx) => {
+        const cardId = `card-${sev}-${idx}`;
+        const mbClass = sev === "warning" ? "mb-warn" : "mb-info";
+        const MAX_SHOWN = 10;
+        const shown = resources.slice(0, MAX_SHOWN);
+        const extra = resources.length - MAX_SHOWN;
+        const resourceList = shown.map(r =>
+          `<code style="font-size:.75rem;color:#475569;display:inline-block;margin:.1rem .2rem">${escHtml(r.type)}/${escHtml(r.id)}</code>`
+        ).join("") + (extra > 0 ? `<span style="font-size:.75rem;color:#94a3b8"> … 另 ${extra} 筆</span>` : "");
+        html += `
+          <div class="card ${sev}" id="${cardId}">
+            <div class="card-header" onclick="toggleCard('${cardId}')">
+              <span class="card-id" style="font-family:monospace">[${escHtml(rule)}]</span>
+              <span class="card-badges"><span class="mini-badge ${mbClass}">×${resources.length}</span><span class="chevron" id="${cardId}-chev">▲</span></span>
+            </div>
+            <div class="card-body open" id="${cardId}-body">
+              ${issueHtml(iss)}
+              <div style="margin-top:.5rem;font-size:.75rem;color:#64748b;font-weight:500">影響的資源：</div>
+              <div style="margin-top:.25rem;line-height:1.6">${resourceList}</div>
+            </div>
+          </div>`;
+      });
+    }
   });
 
   document.getElementById("results").innerHTML = html;
