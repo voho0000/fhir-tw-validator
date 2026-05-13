@@ -132,8 +132,11 @@
   <!-- Header -->
   <div class="header">
     <h1>🔍 FHIR R4 驗證器</h1>
-    <p>上傳 FHIR R4 JSON 檔案，在瀏覽器本地驗證是否符合規範。<br>
-       資料完全不會離開你的裝置。</p>
+    <p>上傳 FHIR R4 JSON 檔案，在瀏覽器本地驗證是否符合規範。資料完全不會離開你的裝置。</p>
+    <p style="font-size:.82rem;color:#92400e;margin-top:.4rem">
+      ⚠ 本驗證器針對 EHR-FHIR-BRIDGE 產生的台灣 NHI 資料設計，不驗術語代碼內容（ICD-10、SNOMED CT 等）、FHIRPath invariant 及 FHIR profile 符合性。
+      詳見 <a href="rules.html">驗證範圍與限制</a>。
+    </p>
     <p class="links">
       <a href="rules.html">📋 驗證規則說明</a> ·
       <a href="https://github.com/voho0000/fhir-tw-validator" target="_blank">GitHub</a> ·

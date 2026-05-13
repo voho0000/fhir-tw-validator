@@ -71,6 +71,14 @@
               padding: .75rem 1rem; font-size: .83rem; color: #1e40af; margin-bottom: 1rem; }
   .info-box strong { display: block; margin-bottom: .25rem; }
 
+  /* Limitation box */
+  .limit-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: .5rem;
+               padding: 1rem 1.1rem; font-size: .83rem; color: #78350f; margin-bottom: 1rem; }
+  .limit-box strong { display: block; margin-bottom: .6rem; font-size: .9rem; }
+  .limit-box ul { padding-left: 1.2rem; }
+  .limit-box li { margin-bottom: .4rem; line-height: 1.55; }
+  .limit-box li code { background: #fef3c7; font-size: .78rem; }
+
   @media (max-width: 560px) {
     .flow-arrow { display: none; }
   }
@@ -151,6 +159,22 @@
       所有驗證邏輯均在瀏覽器本地執行，不呼叫任何外部 API，資料不會離開你的裝置。<br>
       HL7 value sets（status、gender、category 等固定值域）已完整內嵌。<br>
       LOINC 代碼集僅收錄 EHR-FHIR-BRIDGE 已知的約 36 個常用代碼，未收錄的代碼會標示為 INFO（非 ERROR），建議至 <a href="https://loinc.org" target="_blank">loinc.org</a> 確認。
+    </div>
+
+    <div class="limit-box">
+      <strong>⚠ 驗證範圍限制（與完整 FHIR R4 驗證的差距）</strong>
+      本驗證器針對 EHR-FHIR-BRIDGE 產生的台灣 NHI 資料設計，無法取代完整的 FHIR 規範驗證器。以下項目<strong>不在</strong>本驗證器的檢查範圍：
+      <ul>
+        <li><strong>醫療術語代碼內容</strong>：ICD-10（Condition）、SNOMED CT、RxNorm、ATC、UCUM 單位代碼的<em>合法性</em>均未驗證。我們只驗格式和系統 URI，不驗代碼是否真的存在於術語資料庫。</li>
+        <li><strong>LOINC</strong>：只收錄約 36 個代碼。若 Observation 使用其他 LOINC 代碼，僅會標 INFO，無法判斷代碼是否正確。</li>
+        <li><strong>FHIRPath invariant</strong>：FHIR R4 規範為每種資源定義了大量的 FHIRPath 約束條件（如 <code>obs-6</code>：有 <code>value[x]</code> 就不能有 <code>dataAbsentReason</code>），本驗證器均未實作。</li>
+        <li><strong>最大 cardinality</strong>：僅驗「欄位是否存在」，不驗「是否填了超過允許數量」（如 <code>Patient.birthDate</code> 只允許一個）。</li>
+        <li><strong>dateTime 格式</strong>：僅驗 <code>Patient.birthDate</code> 的格式，其他日期時間欄位（<code>effectiveDateTime</code>、<code>authoredOn</code>、<code>issued</code> 等）的 ISO 8601 格式未驗。</li>
+        <li><strong>Extension</strong>：所有 FHIR extension 欄位均被忽略，不驗其結構或值域。</li>
+        <li><strong>Binding strength</strong>：FHIR 值域有 required / extensible / preferred / example 四種強度；本驗證器統一以 required 對待，可能對 extensible binding 產生誤判。</li>
+        <li><strong>不支援的資源類型</strong>：Immunization、CarePlan、DocumentReference、Medication 等未列出的資源類型，只做基本 <code>id</code> 和台灣 NHI 規則檢查，無結構驗證。</li>
+        <li><strong>Profile 驗證</strong>：不支援台灣 NHI FHIR Implementation Guide（IG）的 profile 驗證，如需確認 profile 符合性，請使用 <a href="https://validator.fhir.org" target="_blank">HL7 官方 FHIR Validator</a>。</li>
+      </ul>
     </div>
   </div>
 
