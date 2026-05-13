@@ -571,6 +571,8 @@ function validateBundle(resources) {
    UI STATE
    ───────────────────────────────────────────────────────────────────────── */
 let currentSeverity = "error";
+let currentReports  = null;
+let currentFilename = "";
 const SEV_ORDER = { error: 0, warning: 1, info: 2 };
 
 function setSeverity(s) {
@@ -579,6 +581,7 @@ function setSeverity(s) {
     const bsev = btn.dataset.sev;
     btn.className = "sev-btn" + (bsev === s ? ` active-${bsev}` : "");
   });
+  if (currentReports) renderResults(currentReports, currentFilename);
 }
 
 function meetsThreshold(sev) {
@@ -624,6 +627,8 @@ function processFile(file) {
       }
       if (!resources.length) throw new Error("No FHIR resources found in the file.");
       const reports = validateBundle(resources);
+      currentReports  = reports;
+      currentFilename = file.name;
       renderResults(reports, file.name);
     } catch (err) {
       showError(err.message);
@@ -726,14 +731,14 @@ function renderResults(reports, filename) {
       html += `
         <div class="card ${topSev}" id="${cardId}">
           <div class="card-header" onclick="toggleCard('${cardId}')">
-            <span class="card-id">${escHtml(rep.resourceType)}/${escHtml(rep.resourceId).slice(0,16)}…</span>
-            <span class="card-badges">${badgesHtml}<span class="chevron" id="${cardId}-chev">▼</span></span>
+            <span class="card-id">${escHtml(rep.resourceType)}/${escHtml(rep.resourceId).slice(0,16)}</span>
+            <span class="card-badges">${badgesHtml}<span class="chevron" id="${cardId}-chev">▲</span></span>
           </div>
-          <div class="card-body" id="${cardId}-body">
+          <div class="card-body open" id="${cardId}-body">
             ${sevIssues.map(iss => `
               <div class="issue">
                 <div class="issue-top">
-                  <span class="issue-sev ${iss.severity==="error"?"badge-error":iss.severity==="warning"?"badge-warn":"badge-ok"}" style="font-size:.7rem;padding:.1rem .35rem">${iss.severity}</span>
+                  <span class="issue-sev ${iss.severity==="error"?"badge-error":iss.severity==="warning"?"badge-warn":"badge-ok"}" style="font-size:.7rem;padding:.1rem .35rem">${iss.severity.toUpperCase()}</span>
                   <code class="issue-path">${escHtml(iss.path)}</code>
                   <span class="issue-rule">[${escHtml(iss.rule)}]</span>
                 </div>
