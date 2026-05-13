@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FHIR R4 驗證器 — Taiwan NHI</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #f8fafc; color: #1e293b; min-height: 100vh; }
+  a { color: #4f46e5; }
+
+  /* Layout */
+  .container { max-width: 860px; margin: 0 auto; padding: 2rem 1rem; }
+  .header { margin-bottom: 1.5rem; }
+  .header h1 { font-size: 1.6rem; font-weight: 700; }
+  .header p  { color: #64748b; font-size: .9rem; margin-top: .3rem; }
+  .header .links { font-size: .8rem; margin-top: .4rem; }
+
+  /* Controls */
+  .controls { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .controls label { font-size: .85rem; color: #475569; font-weight: 500; }
+  .sev-btn { padding: .25rem .75rem; border-radius: 999px; border: 1.5px solid transparent;
+              font-size: .75rem; font-weight: 600; cursor: pointer; transition: .15s; }
+  .sev-btn.active-error   { background:#fee2e2; color:#b91c1c; border-color:#fca5a5; }
+  .sev-btn.active-warning { background:#fef9c3; color:#92400e; border-color:#fde047; }
+  .sev-btn.active-info    { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+  .sev-btn:not([class*="active"]) { background:#f1f5f9; color:#64748b; border-color:#e2e8f0; }
+  .sev-btn:not([class*="active"]):hover { background:#e2e8f0; }
+
+  /* Drop zone */
+  .dropzone { border: 2px dashed #cbd5e1; border-radius: .75rem; padding: 3rem 1rem;
+              text-align: center; cursor: pointer; transition: .2s; background: #fff;
+              margin-bottom: 1.5rem; }
+  .dropzone:hover, .dropzone.over { border-color: #6366f1; background: #eef2ff; }
+  .dropzone .icon { font-size: 2.5rem; margin-bottom: .5rem; }
+  .dropzone p { color: #475569; font-size: .95rem; }
+  .dropzone small { color: #94a3b8; font-size: .8rem; }
+  #file-input { display: none; }
+
+  /* Spinner */
+  .spinner { display: none; align-items: center; gap: .6rem; color: #4f46e5; margin-bottom: 1rem; }
+  .spinner.show { display: flex; }
+  .spin { width: 1.1rem; height: 1.1rem; border: 2px solid #a5b4fc;
+          border-top-color: #4f46e5; border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Error */
+  .alert { padding: .75rem 1rem; border-radius: .5rem; margin-bottom: 1rem;
+           font-size: .875rem; display: none; }
+  .alert.show { display: block; }
+  .alert.err  { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; }
+
+  /* Summary card */
+  .summary { background: #fff; border: 1px solid #e2e8f0; border-radius: .75rem;
+             padding: 1.2rem; margin-bottom: 1.2rem; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .summary .meta { font-size: .8rem; color: #94a3b8; margin-bottom: .2rem; }
+  .summary .patient { font-weight: 600; font-size: 1rem; }
+  .summary .badge { display: inline-block; padding: .25rem .75rem; border-radius: 999px;
+                    font-weight: 700; font-size: .8rem; }
+  .badge-ok      { background:#dcfce7; color:#166534; }
+  .badge-warn    { background:#fef9c3; color:#92400e; }
+  .badge-error   { background:#fee2e2; color:#991b1b; }
+  .summary-top   { display: flex; justify-content: space-between; align-items: flex-start;
+                   flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+  .stats-grid    { display: grid; grid-template-columns: repeat(6, 1fr); gap: .5rem; }
+  .stat-cell     { background:#f8fafc; border-radius: .5rem; padding: .5rem; text-align: center; }
+  .stat-num      { font-size: 1.3rem; font-weight: 700; }
+  .stat-lbl      { font-size: .7rem; color: #94a3b8; }
+  .c-ok   { color: #16a34a; }
+  .c-err  { color: #dc2626; }
+  .c-warn { color: #d97706; }
+  .c-info { color: #2563eb; }
+  .c-gray { color: #374151; }
+
+  /* All-pass */
+  .all-pass { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: .75rem;
+              padding: 2rem; text-align: center; color: #15803d; margin-bottom: 1rem; }
+  .all-pass .big { font-size: 2rem; margin-bottom: .4rem; }
+  .all-pass p { font-weight: 600; }
+  .all-pass small { color: #4ade80; font-size: .85rem; }
+
+  /* Section heading */
+  .section-title { font-size: .75rem; font-weight: 700; text-transform: uppercase;
+                   letter-spacing: .05em; margin-bottom: .5rem; }
+  .section-title.err  { color: #dc2626; }
+  .section-title.warn { color: #d97706; }
+  .section-title.info { color: #2563eb; }
+
+  /* Report card */
+  .card { border-radius: .5rem; overflow: hidden; margin-bottom: .4rem; border: 1px solid; }
+  .card.err  { background: #fff5f5; border-color: #fca5a5; }
+  .card.warn { background: #fffbeb; border-color: #fde68a; }
+  .card.info { background: #eff6ff; border-color: #bfdbfe; }
+  .card-header { display: flex; justify-content: space-between; align-items: center;
+                 padding: .65rem 1rem; cursor: pointer; }
+  .card-header:hover { filter: brightness(.97); }
+  .card-id { font-family: monospace; font-size: .82rem; font-weight: 600; }
+  .card-badges { display: flex; gap: .3rem; align-items: center; font-size: .7rem; }
+  .mini-badge { padding: .15rem .45rem; border-radius: 999px; font-weight: 600; }
+  .mb-err  { background:#fee2e2; color:#b91c1c; }
+  .mb-warn { background:#fef9c3; color:#92400e; }
+  .mb-info { background:#dbeafe; color:#1e40af; }
+  .chevron { color: #94a3b8; font-size: .75rem; margin-left: .3rem; }
+  .card-body { padding: 0 1rem .75rem; display: none; }
+  .card-body.open { display: block; }
+  .issue { margin-top: .5rem; font-size: .8rem; }
+  .issue-top { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+               margin-bottom: .15rem; }
+  .issue-sev { padding: .1rem .4rem; border-radius: .25rem; font-weight: 600; font-size: .72rem; }
+  .issue-path { font-family: monospace; color: #475569; font-size: .77rem; }
+  .issue-rule { color: #94a3b8; font-style: italic; font-size: .72rem; }
+  .issue-msg { color: #374151; padding-left: .1rem; }
+
+  /* Type summary table */
+  .type-table { width: 100%; border-collapse: collapse; font-size: .8rem; margin-top: .75rem; }
+  .type-table th { text-align: left; padding: .3rem .5rem; color: #64748b; font-weight: 500;
+                   border-bottom: 1px solid #e2e8f0; }
+  .type-table td { padding: .3rem .5rem; border-bottom: 1px solid #f1f5f9; }
+  .type-table tr:last-child td { border-bottom: none; }
+
+  @media (max-width: 520px) {
+    .stats-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>🔍 FHIR R4 驗證器</h1>
+    <p>上傳 FHIR R4 JSON 檔案，在瀏覽器本地驗證是否符合規範。<br>
+       資料完全不會離開你的裝置。</p>
+    <p class="links">
+      <a href="https://github.com/voho0000/fhir-tw-validator" target="_blank">GitHub</a> ·
+      適用資料來源：台灣 NHI 健康存摺
+    </p>
+  </div>
+
+  <!-- Severity selector -->
+  <div class="controls">
+    <label>最低嚴重度：</label>
+    <button class="sev-btn active-error"   data-sev="error"   onclick="setSeverity('error')">✕ Error</button>
+    <button class="sev-btn"                data-sev="warning" onclick="setSeverity('warning')">⚠ Warning</button>
+    <button class="sev-btn"                data-sev="info"    onclick="setSeverity('info')">ℹ Info</button>
+  </div>
+
+  <!-- Drop zone -->
+  <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()"
+       ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+    <div class="icon">📂</div>
+    <p>拖放 FHIR JSON 檔案至此，或點擊選擇檔案</p>
+    <small>支援 Bundle、單一資源、資源陣列 · 資料不上傳，完全在瀏覽器本地處理</small>
+  </div>
+  <input type="file" id="file-input" accept=".json" onchange="onFileChange(event)">
+
+  <!-- Status -->
+  <div class="spinner" id="spinner"><div class="spin"></div><span id="spinner-text">驗證中…</span></div>
+  <div class="alert err" id="alert-err"></div>
+
+  <!-- Results -->
+  <div id="results"></div>
+
+</div>
+
+<script>
+/* ─────────────────────────────────────────────────────────────────────────
+   TERMINOLOGY — embedded offline value sets
+   ───────────────────────────────────────────────────────────────────────── */
+const KNOWN_LOINC = new Set([
+  "2345-7","718-7","6690-2","777-3","2160-0","3094-0","1920-8","1742-6","2276-4",
+  "2823-3","2951-2","2075-0","1963-8","2000-8","2777-1","1975-2","6768-6","2532-0",
+  "13457-7","2093-3","2085-9","2571-8","4548-4","2339-0","789-8","20570-8","26515-7",
+  "33959-8","1988-5","2498-4","2132-9","14682-9","2161-8","57369-1","33914-3",
+]);
+const OBS_STATUS    = new Set(["registered","preliminary","final","amended","corrected","cancelled","entered-in-error","unknown"]);
+const DR_STATUS     = new Set(["registered","partial","preliminary","final","amended","corrected","appended","cancelled","entered-in-error","unknown"]);
+const MED_STATUS    = new Set(["active","on-hold","cancelled","completed","entered-in-error","stopped","draft","unknown"]);
+const MED_INTENT    = new Set(["proposal","plan","order","original-order","reflex-order","filler-order","instance-order","option"]);
+const CON_CS        = new Set(["active","recurrence","relapse","inactive","remission","resolved"]);
+const AI_CAT        = new Set(["food","medication","environment","biologic"]);
+const AI_CRIT       = new Set(["high","low","unable-to-assess"]);
+const ENC_STATUS    = new Set(["planned","arrived","triaged","in-progress","onleave","finished","cancelled","entered-in-error","unknown"]);
+const ENC_CLASS     = new Set(["AMB","IMP","EMER","VR","HH","OBSENC","SS","PRENC"]);
+const PROC_STATUS   = new Set(["preparation","in-progress","not-done","on-hold","stopped","completed","entered-in-error","unknown"]);
+const NAME_USE      = new Set(["usual","official","temp","nickname","anonymous","old","maiden"]);
+const GENDER_VS     = new Set(["male","female","other","unknown"]);
+const COMPARATOR_VS = new Set(["<","<=",">=",">"]);
+const UCUM_SYS      = "http://unitsofmeasure.org";
+const LOINC_SYS     = "http://loinc.org";
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAIWAN NHI RULES
+   ───────────────────────────────────────────────────────────────────────── */
+const NHI_ID_RE  = /^[A-Z][12]\d{8}$/;
+const ARC_ID_RE  = /^[A-Z][89]\d{8}$/;
+const LAB_CODE_RE = /^\d{4,6}[A-Z]$/;
+const MED_CODE_RE = /^[A-Z]{1,3}[0-9A-Z]{7,9}$/;
+const TZ_RE = /[+-]\d{2}:\d{2}$|Z$/;
+const BRIDGE_SRC = "ehr-fhir-bridge/scraper";
+const DT_FIELDS = ["effectiveDateTime","authoredOn","issued","recordedDate",
+                   "onsetDateTime","performedDateTime"];
+
+/* ─────────────────────────────────────────────────────────────────────────
+   CORE DATA STRUCTURES
+   ───────────────────────────────────────────────────────────────────────── */
+function issue(severity, path, rule, message) {
+  return { severity, path, rule, message };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   HELPERS
+   ───────────────────────────────────────────────────────────────────────── */
+function patRef(resource, field) {
+  const ref = ((resource[field] || {}).reference || "");
+  return /^Patient\/.+/.test(ref) ? null :
+    issue("error", `${field}.reference`, `${resource.resourceType?.toLowerCase()?.slice(0,3)}-${field.slice(0,3)}-required`,
+      `${resource.resourceType}.${field}.reference は 'Patient/<id>' の形式である必要があります。Got: '${ref}'`);
+}
+
+function checkPatRef(r, field, rule, issues) {
+  const ref = ((r[field] || {}).reference || "");
+  if (!/^Patient\/.+/.test(ref)) {
+    issues.push(issue("error", `${field}.reference`, rule,
+      `${r.resourceType}.${field}.reference must match 'Patient/<id>'. Got: '${ref}'`));
+  }
+}
+
+function arr(v) { return Array.isArray(v) ? v : []; }
+function codings(c) { return arr((c || {}).coding); }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   STRUCTURAL VALIDATORS
+   ───────────────────────────────────────────────────────────────────────── */
+function validatePatient(r) {
+  const issues = [];
+  if (!arr(r.identifier).length)
+    issues.push(issue("error","identifier","pat-identifier-required","Patient.identifier must contain at least one entry."));
+  if (!arr(r.name).length)
+    issues.push(issue("error","name","pat-name-required","Patient.name must contain at least one entry."));
+  arr(r.name).forEach((n,i) => {
+    if (n.use && !NAME_USE.has(n.use))
+      issues.push(issue("warning",`name[${i}].use`,"pat-name-use-invalid",
+        `name[${i}].use '${n.use}' is not valid. Expected: ${[...NAME_USE].join(", ")}`));
+  });
+  if (r.gender && !GENDER_VS.has(r.gender))
+    issues.push(issue("error","gender","pat-gender-invalid",
+      `Patient.gender '${r.gender}' is not valid. Expected: male, female, other, unknown`));
+  if (r.birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(r.birthDate))
+    issues.push(issue("warning","birthDate","pat-birthdate-format",
+      `Patient.birthDate '${r.birthDate}' does not match YYYY-MM-DD.`));
+  return issues;
+}
+
+function validateObservation(r) {
+  const issues = [];
+  if (!r.status)
+    issues.push(issue("error","status","obs-status-required","Observation.status is required."));
+  else if (!OBS_STATUS.has(r.status))
+    issues.push(issue("error","status","obs-status-invalid",
+      `Observation.status '${r.status}' is not valid.`));
+
+  const cods = codings(r.code);
+  if (!cods.length)
+    issues.push(issue("error","code.coding","obs-code-required","Observation.code must have at least one coding."));
+  else cods.forEach((c,i) => {
+    if (c.system === LOINC_SYS && c.code && !KNOWN_LOINC.has(c.code))
+      issues.push(issue("info",`code.coding[${i}].code`,"obs-loinc-unknown",
+        `LOINC code '${c.code}' is not in the known LOINC set. Verify it is correct.`));
+  });
+
+  checkPatRef(r, "subject", "obs-subject-required", issues);
+
+  if (!arr(r.category).length)
+    issues.push(issue("warning","category","obs-category-missing","Observation.category is recommended (e.g. 'laboratory')."));
+
+  const valueKeys = Object.keys(r).filter(k => k.startsWith("value"));
+  if (!valueKeys.length && !r.dataAbsentReason && !r.component)
+    issues.push(issue("warning","value[x]","obs-value-missing",
+      "Observation has no value[x] or dataAbsentReason."));
+
+  const vq = r.valueQuantity;
+  if (vq) {
+    if (vq.system && vq.system !== UCUM_SYS)
+      issues.push(issue("warning","valueQuantity.system","obs-ucum-system",
+        `valueQuantity.system should be '${UCUM_SYS}'. Got: '${vq.system}'`));
+    if (vq.system === UCUM_SYS && !vq.code)
+      issues.push(issue("warning","valueQuantity.code","obs-ucum-code-empty","valueQuantity.code (UCUM unit) is empty."));
+    if (vq.comparator && !COMPARATOR_VS.has(vq.comparator))
+      issues.push(issue("error","valueQuantity.comparator","obs-comparator-invalid",
+        `valueQuantity.comparator '${vq.comparator}' is not valid. Expected: < <= >= >`));
+  }
+
+  arr(r.referenceRange).forEach((rr,i) => {
+    ["low","high"].forEach(bound => {
+      if (rr[bound] != null && typeof rr[bound].value !== "number")
+        issues.push(issue("error",`referenceRange[${i}].${bound}.value`,"obs-refrange-numeric",
+          `referenceRange[${i}].${bound}.value must be numeric. Got: ${JSON.stringify(rr[bound].value)}`));
+    });
+  });
+
+  arr(r.interpretation).forEach((interp,i) => {
+    codings(interp).forEach((c,j) => {
+      const exp = "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation";
+      if (c.system && c.system !== exp)
+        issues.push(issue("warning",`interpretation[${i}].coding[${j}].system`,"obs-interp-system",
+          `Unexpected interpretation system '${c.system}'.`));
+    });
+  });
+
+  return issues;
+}
+
+function validateDiagnosticReport(r) {
+  const issues = [];
+  if (!r.status)
+    issues.push(issue("error","status","dr-status-required","DiagnosticReport.status is required."));
+  else if (!DR_STATUS.has(r.status))
+    issues.push(issue("error","status","dr-status-invalid",`DiagnosticReport.status '${r.status}' is not valid.`));
+
+  if (!codings(r.code).length && !(r.code || {}).text)
+    issues.push(issue("error","code","dr-code-required","DiagnosticReport.code is required."));
+
+  checkPatRef(r, "subject", "dr-subject-required", issues);
+
+  if (r.status === "final" && !r.issued)
+    issues.push(issue("warning","issued","dr-issued-missing",
+      "DiagnosticReport.issued should be present when status is 'final'."));
+
+  arr(r.result).forEach((ref,i) => {
+    if (!(/^Observation\/.+/.test(ref.reference || "")))
+      issues.push(issue("warning",`result[${i}].reference`,"dr-result-ref-invalid",
+        `result[${i}].reference '${ref.reference}' should match 'Observation/<id>'.`));
+  });
+
+  return issues;
+}
+
+function validateMedicationRequest(r) {
+  const issues = [];
+  if (!r.status)
+    issues.push(issue("error","status","med-status-required","MedicationRequest.status is required."));
+  else if (!MED_STATUS.has(r.status))
+    issues.push(issue("error","status","med-status-invalid",`MedicationRequest.status '${r.status}' is not valid.`));
+
+  if (!r.intent)
+    issues.push(issue("error","intent","med-intent-required","MedicationRequest.intent is required."));
+  else if (!MED_INTENT.has(r.intent))
+    issues.push(issue("error","intent","med-intent-invalid",`MedicationRequest.intent '${r.intent}' is not valid.`));
+
+  const mc = r.medicationCodeableConcept;
+  if (!mc || (!codings(mc).length && !mc.text))
+    issues.push(issue("error","medicationCodeableConcept","med-medication-required",
+      "MedicationRequest must have medicationCodeableConcept with at least one coding or text."));
+
+  checkPatRef(r, "subject", "med-subject-required", issues);
+
+  arr(r.dosageInstruction).forEach((di,i) => {
+    if (!di.text)
+      issues.push(issue("warning",`dosageInstruction[${i}].text`,"med-dosage-text-missing",
+        `dosageInstruction[${i}].text is recommended.`));
+  });
+
+  return issues;
+}
+
+function validateCondition(r) {
+  const issues = [];
+  const cs = r.clinicalStatus || {};
+  if (!codings(cs).length)
+    issues.push(issue("error","clinicalStatus","con-clinical-status-required",
+      "Condition.clinicalStatus is required and must have at least one coding."));
+  else codings(cs).forEach((c,i) => {
+    if (c.code && !CON_CS.has(c.code.toLowerCase()))
+      issues.push(issue("warning",`clinicalStatus.coding[${i}].code`,"con-clinical-status-invalid",
+        `clinicalStatus code '${c.code}' not in expected value set.`));
+  });
+
+  if (!codings(r.code).length && !(r.code || {}).text)
+    issues.push(issue("error","code","con-code-required","Condition.code is required."));
+
+  checkPatRef(r, "subject", "con-subject-required", issues);
+  return issues;
+}
+
+function validateAllergyIntolerance(r) {
+  const issues = [];
+  const ref = ((r.patient || {}).reference || "");
+  if (!/^Patient\/.+/.test(ref))
+    issues.push(issue("error","patient.reference","ai-patient-required",
+      `AllergyIntolerance.patient.reference must match 'Patient/<id>'. Got: '${ref}'`));
+
+  if (!codings(r.code).length && !(r.code || {}).text)
+    issues.push(issue("error","code","ai-code-required","AllergyIntolerance.code is required."));
+
+  arr(r.category).forEach((cat,i) => {
+    if (!AI_CAT.has(cat))
+      issues.push(issue("error",`category[${i}]`,"ai-category-invalid",
+        `AllergyIntolerance.category[${i}] '${cat}' is not valid. Expected: food, medication, environment, biologic`));
+  });
+
+  if (r.criticality && !AI_CRIT.has(r.criticality))
+    issues.push(issue("error","criticality","ai-criticality-invalid",
+      `AllergyIntolerance.criticality '${r.criticality}' is not valid. Expected: high, low, unable-to-assess`));
+
+  return issues;
+}
+
+function validateEncounter(r) {
+  const issues = [];
+  if (!r.status)
+    issues.push(issue("error","status","enc-status-required","Encounter.status is required."));
+  else if (!ENC_STATUS.has(r.status))
+    issues.push(issue("error","status","enc-status-invalid",`Encounter.status '${r.status}' is not valid.`));
+
+  if (!(r.class || {}).code)
+    issues.push(issue("error","class","enc-class-required","Encounter.class is required and must have a 'code' (e.g. AMB, IMP, EMER)."));
+  else if (!ENC_CLASS.has(r.class.code))
+    issues.push(issue("warning","class.code","enc-class-code-unknown",
+      `Encounter.class.code '${r.class.code}' is not a standard v3-ActCode value.`));
+
+  checkPatRef(r, "subject", "enc-subject-required", issues);
+
+  if (!((r.period || {}).start))
+    issues.push(issue("warning","period.start","enc-period-start-missing","Encounter.period.start is recommended."));
+
+  return issues;
+}
+
+function validateProcedure(r) {
+  const issues = [];
+  if (!r.status)
+    issues.push(issue("error","status","proc-status-required","Procedure.status is required."));
+  else if (!PROC_STATUS.has(r.status))
+    issues.push(issue("error","status","proc-status-invalid",`Procedure.status '${r.status}' is not valid.`));
+
+  if (!codings(r.code).length && !(r.code || {}).text)
+    issues.push(issue("error","code","proc-code-required","Procedure.code is required."));
+
+  checkPatRef(r, "subject", "proc-subject-required", issues);
+  return issues;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAIWAN NHI VALIDATORS
+   ───────────────────────────────────────────────────────────────────────── */
+function validateTaiwan(r) {
+  const issues = [];
+
+  // meta.source
+  const src = ((r.meta || {}).source || "");
+  if (src !== BRIDGE_SRC)
+    issues.push(issue("info","meta.source","tw-meta-source",
+      `meta.source should be '${BRIDGE_SRC}'. Got: '${src}'`));
+
+  // timezone
+  DT_FIELDS.forEach(f => {
+    const v = r[f];
+    if (typeof v === "string" && v.includes("T") && !TZ_RE.test(v))
+      issues.push(issue("warning", f, "tw-timezone-missing",
+        `${f} '${v}' has no timezone offset. Taiwan resources should use +08:00.`));
+  });
+
+  if (r.resourceType === "Patient") {
+    arr(r.identifier).forEach((ident, i) => {
+      const v = ident.value || "";
+      if (v.length === 10 && !NHI_ID_RE.test(v) && !ARC_ID_RE.test(v))
+        issues.push(issue("warning", `identifier[${i}].value`, "tw-nhi-id-format",
+          `Identifier '${v}' does not match NHI ID (^[A-Z][12]\\d{8}$) or ARC format. May be a hospital MRN.`));
+    });
+  }
+
+  if (r.resourceType === "Observation") {
+    codings(r.code).forEach((c, i) => {
+      if ((c.system === "urn:oid:nhi.lab.code" || c.system === "urn:oid:his.lab.code")
+          && c.code && !LAB_CODE_RE.test(c.code))
+        issues.push(issue("warning", `code.coding[${i}].code`, "tw-nhi-lab-code-format",
+          `NHI 醫令代碼 '${c.code}' does not match ^\\d{4,6}[A-Z]$.`));
+    });
+  }
+
+  if (r.resourceType === "MedicationRequest") {
+    codings(r.medicationCodeableConcept).forEach((c, i) => {
+      if (c.system === "urn:oid:nhi.medication.code" && c.code && !MED_CODE_RE.test(c.code))
+        issues.push(issue("info", `medicationCodeableConcept.coding[${i}].code`, "tw-nhi-med-code-format",
+          `NHI 健保藥品代碼 '${c.code}' does not match expected pattern.`));
+    });
+  }
+
+  return issues;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   REFERENCE INTEGRITY
+   ───────────────────────────────────────────────────────────────────────── */
+function validateReferences(resources, reportMap) {
+  const patientIds = new Set(
+    resources.filter(r => r.resourceType === "Patient" && r.id).map(r => r.id)
+  );
+  const obsIds = new Set(
+    resources.filter(r => r.resourceType === "Observation" && r.id).map(r => r.id)
+  );
+
+  resources.forEach(r => {
+    const key = `${r.resourceType}/${r.id}`;
+    const rep = reportMap[key];
+    if (!rep) return;
+
+    ["subject","patient"].forEach(field => {
+      const ref = ((r[field] || {}).reference || "");
+      if (/^Patient\/.+/.test(ref)) {
+        const pid = ref.split("/")[1];
+        if (patientIds.size && !patientIds.has(pid))
+          rep.issues.push(issue("error", `${field}.reference`, "ref-patient-dangling",
+            `${r.resourceType}.${field}.reference 'Patient/${pid}' does not resolve to any Patient in this batch.`));
+      }
+    });
+
+    if (r.resourceType === "DiagnosticReport") {
+      arr(r.result).forEach((ref, i) => {
+        const refStr = ref.reference || "";
+        if (/^Observation\/.+/.test(refStr)) {
+          const oid = refStr.split("/")[1];
+          if (obsIds.size && !obsIds.has(oid))
+            rep.issues.push(issue("warning", `result[${i}].reference`, "ref-obs-dangling",
+              `DiagnosticReport.result[${i}].reference 'Observation/${oid}' does not resolve to any Observation in this batch.`));
+        }
+      });
+    }
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   DISPATCH TABLE
+   ───────────────────────────────────────────────────────────────────────── */
+const VALIDATORS = {
+  Patient:            validatePatient,
+  Observation:        validateObservation,
+  DiagnosticReport:   validateDiagnosticReport,
+  MedicationRequest:  validateMedicationRequest,
+  Condition:          validateCondition,
+  AllergyIntolerance: validateAllergyIntolerance,
+  Encounter:          validateEncounter,
+  Procedure:          validateProcedure,
+};
+
+function validateResource(r) {
+  const issues = [];
+  if (!r.id) issues.push(issue("error","id","fhir-id-required","Resource must have an 'id' field."));
+  const fn = VALIDATORS[r.resourceType];
+  if (fn) issues.push(...fn(r));
+  else issues.push(issue("info","resourceType","fhir-unknown-type",
+    `Resource type '${r.resourceType}' is not validated by this validator.`));
+  issues.push(...validateTaiwan(r));
+  return { resourceType: r.resourceType, resourceId: r.id || "(no id)", issues };
+}
+
+function validateBundle(resources) {
+  const clean = resources.filter(r => r && typeof r === "object");
+  const reports = clean.map(validateResource);
+  const reportMap = {};
+  clean.forEach((r, i) => {
+    reportMap[`${r.resourceType}/${r.id}`] = reports[i];
+  });
+  validateReferences(clean, reportMap);
+  return reports;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   UI STATE
+   ───────────────────────────────────────────────────────────────────────── */
+let currentSeverity = "error";
+const SEV_ORDER = { error: 0, warning: 1, info: 2 };
+
+function setSeverity(s) {
+  currentSeverity = s;
+  document.querySelectorAll(".sev-btn").forEach(btn => {
+    const bsev = btn.dataset.sev;
+    btn.className = "sev-btn" + (bsev === s ? ` active-${bsev}` : "");
+  });
+}
+
+function meetsThreshold(sev) {
+  return SEV_ORDER[sev] <= SEV_ORDER[currentSeverity];
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   FILE HANDLING
+   ───────────────────────────────────────────────────────────────────────── */
+function onDragOver(e)  { e.preventDefault(); document.getElementById("dropzone").classList.add("over"); }
+function onDragLeave(e) { document.getElementById("dropzone").classList.remove("over"); }
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById("dropzone").classList.remove("over");
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+function onFileChange(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+  e.target.value = "";
+}
+
+function processFile(file) {
+  if (!file.name.endsWith(".json")) { showError("請上傳 .json 格式的檔案"); return; }
+  showSpinner(`驗證中：${file.name}`);
+  hideError();
+  document.getElementById("results").innerHTML = "";
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const body = JSON.parse(e.target.result);
+      let resources;
+      if (Array.isArray(body)) {
+        resources = body;
+      } else if (body.resourceType === "Bundle") {
+        resources = (body.entry || []).map(en => en.resource || en).filter(Boolean);
+      } else if (body.resourceType) {
+        resources = [body];
+      } else {
+        throw new Error("Expected a FHIR Bundle, single resource, or array of resources.");
+      }
+      if (!resources.length) throw new Error("No FHIR resources found in the file.");
+      const reports = validateBundle(resources);
+      renderResults(reports, file.name);
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      hideSpinner();
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   RENDER
+   ───────────────────────────────────────────────────────────────────────── */
+function renderResults(reports, filename) {
+  const total    = reports.length;
+  const valid    = reports.filter(r => !r.issues.some(i => i.severity === "error")).length;
+  const errCount = reports.reduce((s,r) => s + r.issues.filter(i => i.severity==="error").length, 0);
+  const wrnCount = reports.reduce((s,r) => s + r.issues.filter(i => i.severity==="warning").length, 0);
+  const infCount = reports.reduce((s,r) => s + r.issues.filter(i => i.severity==="info").length, 0);
+
+  const patientId = (reports.find(r => r.resourceType === "Patient") || {}).resourceId || "";
+
+  const badge = errCount > 0
+    ? `<span class="badge badge-error">${errCount} 個 ERROR</span>`
+    : wrnCount > 0
+      ? `<span class="badge badge-warn">${wrnCount} 個 WARNING</span>`
+      : `<span class="badge badge-ok">✓ 完全合規</span>`;
+
+  // Type stats
+  const typeStats = {};
+  reports.forEach(r => {
+    const t = r.resourceType || "Unknown";
+    if (!typeStats[t]) typeStats[t] = { count:0, errors:0, warnings:0, info:0 };
+    typeStats[t].count++;
+    typeStats[t].errors   += r.issues.filter(i=>i.severity==="error").length;
+    typeStats[t].warnings += r.issues.filter(i=>i.severity==="warning").length;
+    typeStats[t].info     += r.issues.filter(i=>i.severity==="info").length;
+  });
+
+  const typeRows = Object.entries(typeStats).sort().map(([t,s]) => `
+    <tr>
+      <td>${t}</td>
+      <td>${s.count}</td>
+      <td class="${s.errors?'c-err':'c-ok'}">${s.errors}</td>
+      <td class="${s.warnings?'c-warn':''}">${s.warnings}</td>
+      <td class="c-info">${s.info}</td>
+    </tr>`).join("");
+
+  let html = `
+    <div class="summary">
+      <div class="summary-top">
+        <div>
+          <div class="meta">${escHtml(filename)}</div>
+          ${patientId ? `<div class="patient">Patient: ${escHtml(patientId)}</div>` : ""}
+        </div>
+        ${badge}
+      </div>
+      <div class="stats-grid">
+        <div class="stat-cell"><div class="stat-num c-gray">${total}</div><div class="stat-lbl">總資源</div></div>
+        <div class="stat-cell"><div class="stat-num c-ok">${valid}</div><div class="stat-lbl">合規</div></div>
+        <div class="stat-cell"><div class="stat-num c-err">${total-valid}</div><div class="stat-lbl">有錯誤</div></div>
+        <div class="stat-cell"><div class="stat-num c-err">${errCount}</div><div class="stat-lbl">ERROR</div></div>
+        <div class="stat-cell"><div class="stat-num c-warn">${wrnCount}</div><div class="stat-lbl">WARN</div></div>
+        <div class="stat-cell"><div class="stat-num c-info">${infCount}</div><div class="stat-lbl">INFO</div></div>
+      </div>
+      <table class="type-table">
+        <thead><tr><th>資源類型</th><th>數量</th><th>ERROR</th><th>WARN</th><th>INFO</th></tr></thead>
+        <tbody>${typeRows}</tbody>
+      </table>
+    </div>`;
+
+  if (errCount === 0 && wrnCount === 0) {
+    html += `<div class="all-pass">
+      <div class="big">✅</div>
+      <p>所有資源均符合 FHIR R4 規範</p>
+      <small>共 ${total} 筆資源，無錯誤或警告</small>
+    </div>`;
+  }
+
+  // Issue sections
+  ["error","warning","info"].forEach(sev => {
+    if (!meetsThreshold(sev)) return;
+    const matching = reports.filter(r =>
+      r.issues.some(i => i.severity === sev && meetsThreshold(i.severity))
+    );
+    if (!matching.length) return;
+    const label = sev === "error" ? "ERROR" : sev === "warning" ? "WARNING" : "INFO";
+    const totalIssues = matching.reduce((s,r) =>
+      s + r.issues.filter(i => i.severity === sev).length, 0);
+    html += `<div class="section-title ${sev}">${label} — ${matching.length} 筆資源 / ${totalIssues} 個問題</div>`;
+    matching.forEach((rep, idx) => {
+      const topSev = rep.issues[0]?.severity || "info";
+      const sevIssues = rep.issues.filter(i => i.severity === sev);
+      if (!sevIssues.length) return;
+      const badgesHtml = ["error","warning","info"].map(s => {
+        const cnt = rep.issues.filter(i=>i.severity===s).length;
+        return cnt ? `<span class="mini-badge mb-${s}">${cnt}</span>` : "";
+      }).join("");
+      const cardId = `card-${sev}-${idx}`;
+      html += `
+        <div class="card ${topSev}" id="${cardId}">
+          <div class="card-header" onclick="toggleCard('${cardId}')">
+            <span class="card-id">${escHtml(rep.resourceType)}/${escHtml(rep.resourceId).slice(0,16)}…</span>
+            <span class="card-badges">${badgesHtml}<span class="chevron" id="${cardId}-chev">▼</span></span>
+          </div>
+          <div class="card-body" id="${cardId}-body">
+            ${sevIssues.map(iss => `
+              <div class="issue">
+                <div class="issue-top">
+                  <span class="issue-sev ${iss.severity==="error"?"badge-error":iss.severity==="warning"?"badge-warn":"badge-ok"}" style="font-size:.7rem;padding:.1rem .35rem">${iss.severity}</span>
+                  <code class="issue-path">${escHtml(iss.path)}</code>
+                  <span class="issue-rule">[${escHtml(iss.rule)}]</span>
+                </div>
+                <div class="issue-msg">${escHtml(iss.message)}</div>
+              </div>`).join("")}
+          </div>
+        </div>`;
+    });
+  });
+
+  document.getElementById("results").innerHTML = html;
+}
+
+function toggleCard(id) {
+  const body = document.getElementById(id + "-body");
+  const chev = document.getElementById(id + "-chev");
+  const open = body.classList.toggle("open");
+  chev.textContent = open ? "▲" : "▼";
+}
+
+function escHtml(s) {
+  return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function showSpinner(msg) {
+  document.getElementById("spinner").classList.add("show");
+  document.getElementById("spinner-text").textContent = msg;
+}
+function hideSpinner() { document.getElementById("spinner").classList.remove("show"); }
+function showError(msg) {
+  const el = document.getElementById("alert-err");
+  el.textContent = msg; el.classList.add("show");
+}
+function hideError() { document.getElementById("alert-err").classList.remove("show"); }
+</script>
+</body>
+</html>
