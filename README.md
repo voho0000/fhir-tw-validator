@@ -233,9 +233,9 @@ The web UI at `/validate` provides drag-and-drop file upload with an interactive
 
 ---
 
-## Real-World Results (VGH dataset)
+## Real-World Results
 
-Validated against a real patient record (1,528 FHIR R4 resources from 健康存摺):
+Validated against a real patient record (1,528 FHIR R4 resources from NHI 健康存摺):
 
 | Resource | Count | ERRORs | WARNINGs |
 |----------|-------|--------|----------|
