@@ -1,0 +1,73 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "P001",
+        "meta": { "source": "ehr-fhir-bridge/scraper" },
+        "identifier": [{ "use": "official", "system": "urn:oid:his.patient.mrn", "value": "P001" }],
+        "name": [{ "use": "official", "text": "王小明", "family": "王", "given": ["小明"] }],
+        "gender": "male",
+        "birthDate": "1970-01-15"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-gluc-001",
+        "meta": { "source": "ehr-fhir-bridge/scraper" },
+        "status": "final",
+        "category": [{
+          "coding": [{
+            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+            "code": "laboratory"
+          }]
+        }],
+        "code": {
+          "coding": [
+            { "system": "http://loinc.org", "code": "2345-7", "display": "Glucose" },
+            { "system": "urn:oid:nhi.lab.code", "code": "06013C", "display": "血糖" }
+          ],
+          "text": "血糖"
+        },
+        "subject": { "reference": "Patient/P001" },
+        "effectiveDateTime": "2025-01-15T00:00:00+08:00",
+        "valueQuantity": {
+          "value": 120,
+          "unit": "mg/dL",
+          "system": "http://unitsofmeasure.org",
+          "code": "mg/dL"
+        },
+        "interpretation": [{
+          "coding": [{
+            "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+            "code": "H",
+            "display": "High"
+          }]
+        }]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-metformin-001",
+        "meta": { "source": "ehr-fhir-bridge/scraper" },
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{
+            "system": "urn:oid:nhi.medication.code",
+            "code": "BC23792100",
+            "display": "Metformin HCl 500mg"
+          }],
+          "text": "Metformin HCl 500mg"
+        },
+        "subject": { "reference": "Patient/P001" },
+        "authoredOn": "2025-01-15T00:00:00+08:00",
+        "dosageInstruction": [{ "text": "每日兩次，每次一顆" }]
+      }
+    }
+  ]
+}

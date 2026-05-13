@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "fhir-tw-validator"
+version = "0.1.0"
+description = "FHIR R4 validator for Taiwan NHI health data (健康存摺)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+keywords = ["fhir", "taiwan", "nhi", "health", "validator"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = []   # zero external dependencies — pure Python stdlib
+
+[project.scripts]
+fhir-tw-validate = "scripts.validate_file:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["fhir_tw_validator*"]
