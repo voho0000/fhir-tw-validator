@@ -148,7 +148,9 @@
     </div>
     <div class="info-box">
       <strong>離線優先設計</strong>
-      所有驗證邏輯均在瀏覽器本地執行，不呼叫任何外部 API。LOINC 代碼集、HL7 value sets 全部內嵌於程式中，資料不會離開你的裝置。
+      所有驗證邏輯均在瀏覽器本地執行，不呼叫任何外部 API，資料不會離開你的裝置。<br>
+      HL7 value sets（status、gender、category 等固定值域）已完整內嵌。<br>
+      LOINC 代碼集僅收錄 EHR-FHIR-BRIDGE 已知的約 36 個常用代碼，未收錄的代碼會標示為 INFO（非 ERROR），建議至 <a href="https://loinc.org" target="_blank">loinc.org</a> 確認。
     </div>
   </div>
 
