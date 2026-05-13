@@ -111,6 +111,8 @@
   .issue-path { font-family: monospace; color: #475569; font-size: .77rem; }
   .issue-rule { color: #94a3b8; font-style: italic; font-size: .72rem; }
   .issue-msg { color: #374151; padding-left: .1rem; }
+  .issue-zh  { color: #4b5563; font-size: .78rem; padding-left: .1rem; margin-top: .2rem;
+               border-left: 2px solid #d1d5db; padding-left: .5rem; line-height: 1.5; }
 
   /* Type summary table */
   .type-table { width: 100%; border-collapse: collapse; font-size: .8rem; margin-top: .75rem; }
@@ -201,6 +203,83 @@ const TZ_RE = /[+-]\d{2}:\d{2}$|Z$/;
 const BRIDGE_SRC = "ehr-fhir-bridge/scraper";
 const DT_FIELDS = ["effectiveDateTime","authoredOn","issued","recordedDate",
                    "onsetDateTime","performedDateTime"];
+
+/* ─────────────────────────────────────────────────────────────────────────
+   RULE EXPLANATIONS (繁中)
+   ───────────────────────────────────────────────────────────────────────── */
+const RULE_ZH = {
+  // Patient
+  "pat-identifier-required":  "Patient 必須至少有一個 identifier（如身分證號或病歷號），FHIR 接收方才能辨識病人身份。",
+  "pat-name-required":        "Patient 必須包含姓名（name），這是 FHIR 病人資源的必填欄位。",
+  "pat-name-use-invalid":     "name.use 的值不在 FHIR HL7 標準允許範圍（usual/official/temp/nickname/anonymous/old/maiden）。",
+  "pat-gender-invalid":       "gender 必須是 male、female、other 或 unknown 之一，其他值不符合 FHIR 規範。",
+  "pat-birthdate-format":     "birthDate 格式必須是 YYYY-MM-DD（如 1970-01-01），不能使用民國年或其他格式。",
+
+  // Observation
+  "obs-status-required":      "Observation.status 是必填欄位，表示觀察值的狀態（如 final、preliminary）。缺少此欄位代表資料不完整。",
+  "obs-status-invalid":       "Observation.status 的值不在 FHIR 允許的狀態清單內（registered/preliminary/final/amended/corrected/cancelled/entered-in-error/unknown）。",
+  "obs-code-required":        "Observation.code 必須包含至少一個 coding，用來標識這個觀察項目是什麼（如 LOINC 代碼）。",
+  "obs-loinc-unknown":        "這個 LOINC 代碼不在驗證器已知的代碼集中。可能是正確的 LOINC 代碼但尚未收錄，或代碼有誤。建議至 loinc.org 確認。",
+  "obs-subject-required":     "Observation.subject.reference 必須格式為 Patient/<id>，用來關聯到對應的病人資源。",
+  "obs-category-missing":     "建議填寫 category（如 laboratory、vital-signs），方便 FHIR 接收方分類篩選觀察值。",
+  "obs-value-missing":        "Observation 沒有任何 value[x] 欄位（如 valueQuantity、valueString），也沒有 dataAbsentReason。建議明確填寫數值或說明缺值原因。",
+  "obs-ucum-system":          "valueQuantity.system 應填 http://unitsofmeasure.org（UCUM 標準單位系統），目前填入的值不符合規範。",
+  "obs-ucum-code-empty":      "valueQuantity.system 指定為 UCUM，但 code（單位代碼）是空的。應填入對應的 UCUM 單位（如 mg/dL、mmHg）。",
+  "obs-comparator-invalid":   "valueQuantity.comparator 只允許 <、<=、>=、> 四個值，其他符號不符合 FHIR 規範。",
+  "obs-refrange-numeric":     "referenceRange.low/high.value 必須是數字，不能是字串或空值。",
+
+  // DiagnosticReport
+  "dr-status-required":       "DiagnosticReport.status 是必填欄位（如 final、preliminary），缺少此欄位不符合 FHIR 規範。",
+  "dr-status-invalid":        "DiagnosticReport.status 的值不在 FHIR 允許範圍內。",
+  "dr-code-required":         "DiagnosticReport.code 是必填欄位，用來標識這份報告的類型（如檢驗套餐名稱）。",
+  "dr-subject-required":      "DiagnosticReport.subject.reference 必須格式為 Patient/<id>，指向對應病人。",
+  "dr-issued-missing":        "DiagnosticReport.status 為 final 時，issued（報告出具時間）應填寫。這是 EHR-FHIR-BRIDGE 舊版 mapper 的已知問題，新版已修正；重新同步資料後會消失。",
+  "dr-result-ref-invalid":    "DiagnosticReport.result[].reference 必須格式為 Observation/<id>，指向個別的檢驗值資源。",
+
+  // MedicationRequest
+  "med-status-required":      "MedicationRequest.status 是必填欄位（如 active、completed），缺少此欄位不符合 FHIR 規範。",
+  "med-intent-required":      "MedicationRequest.intent 是必填欄位（如 order、plan），表示這筆藥囑的性質。",
+  "med-medication-required":  "MedicationRequest 必須包含 medicationCodeableConcept 且至少有一個 coding，用來標識藥品。",
+  "med-subject-required":     "MedicationRequest.subject.reference 必須格式為 Patient/<id>。",
+  "med-dosage-text-missing":  "建議在 dosageInstruction[].text 填寫用藥說明文字，讓非系統使用者（如醫師）也能理解劑量。",
+
+  // Condition
+  "con-code-required":        "Condition.code 是必填欄位，用來標識診斷（通常為 ICD-10 代碼）。",
+  "con-status-required":      "Condition.clinicalStatus 是必填欄位，表示疾病目前狀態（如 active、resolved）。",
+  "con-subject-required":     "Condition.subject.reference 必須格式為 Patient/<id>。",
+
+  // AllergyIntolerance
+  "ai-patient-required":      "AllergyIntolerance.patient.reference 必須格式為 Patient/<id>。",
+  "ai-code-required":         "AllergyIntolerance.code 是必填欄位，用來標識過敏原。",
+  "ai-category-invalid":      "AllergyIntolerance.category 只允許 food、medication、environment、biologic 四個值。",
+  "ai-criticality-invalid":   "AllergyIntolerance.criticality 只允許 high、low、unable-to-assess 三個值。",
+
+  // Encounter
+  "enc-status-required":      "Encounter.status 是必填欄位（如 finished、in-progress）。",
+  "enc-class-required":       "Encounter.class 是必填欄位，必須填寫就醫類別代碼（如 AMB 門診、IMP 住院）。",
+  "enc-subject-required":     "Encounter.subject.reference 必須格式為 Patient/<id>。",
+  "enc-period-start-missing": "建議填寫 Encounter.period.start（就醫開始時間），讓接收方知道就醫發生的時間點。",
+
+  // Procedure
+  "proc-status-required":     "Procedure.status 是必填欄位（如 completed、in-progress）。",
+  "proc-code-required":       "Procedure.code 是必填欄位，用來標識執行的醫療處置。",
+  "proc-subject-required":    "Procedure.subject.reference 必須格式為 Patient/<id>。",
+
+  // Taiwan NHI
+  "tw-nhi-id-format":         "10 碼身分證格式不符合台灣規範（本國籍：首碼大寫字母 + 1 或 2 + 8 位數字；外籍居留：首碼 + 8 或 9 + 8 位數字）。若為醫院病歷號可忽略此警告。",
+  "tw-nhi-lab-code-format":   "NHI 醫令代碼（urn:oid:nhi.lab.code）格式應為 4–6 位數字 + 1 位大寫字母（如 09001C）。",
+  "tw-nhi-med-code-format":   "健保藥品代碼（urn:oid:nhi.medication.code）格式應為 1–3 位大寫字母 + 7–9 位英數字（含舊式 G0 結尾，如 AC346701G0）。",
+  "tw-timezone-missing":      "日期時間欄位建議加上台灣時區 +08:00（如 2024-01-01T08:00:00+08:00），避免跨時區解讀錯誤。",
+  "tw-meta-source":           "meta.source 不是 ehr-fhir-bridge/scraper。若資料非由本橋接器產生可忽略。",
+
+  // Reference integrity
+  "ref-patient-dangling":     "此資源的 subject.reference（或 patient.reference）指向的 Patient ID 在這批資料中找不到。可能是匯出資料不完整，或 Patient 資源遺漏。",
+  "ref-obs-dangling":         "DiagnosticReport.result[] 指向的 Observation 在這批資料中找不到。可能是部分 Observation 未匯出，或 ID 有誤。",
+
+  // Generic
+  "fhir-id-required":         "每個 FHIR 資源都必須有 id 欄位。缺少 id 代表資源無法被唯一識別。",
+  "fhir-unknown-type":        "此 resourceType 不在本驗證器支援範圍內，因此未進行結構驗證。",
+};
 
 /* ─────────────────────────────────────────────────────────────────────────
    CORE DATA STRUCTURES
@@ -644,6 +723,7 @@ function processFile(file) {
    ───────────────────────────────────────────────────────────────────────── */
 function issueHtml(iss) {
   const sevClass = iss.severity==="error" ? "badge-error" : iss.severity==="warning" ? "badge-warn" : "badge-ok";
+  const zh = RULE_ZH[iss.rule] ? `<div class="issue-zh">${escHtml(RULE_ZH[iss.rule])}</div>` : "";
   return `<div class="issue">
     <div class="issue-top">
       <span class="issue-sev ${sevClass}" style="font-size:.7rem;padding:.1rem .35rem">${iss.severity.toUpperCase()}</span>
@@ -651,6 +731,7 @@ function issueHtml(iss) {
       <span class="issue-rule">[${escHtml(iss.rule)}]</span>
     </div>
     <div class="issue-msg">${escHtml(iss.message)}</div>
+    ${zh}
   </div>`;
 }
 
@@ -772,10 +853,14 @@ function renderResults(reports, filename) {
         const resourceList = shown.map(r =>
           `<code style="font-size:.75rem;color:#475569;display:inline-block;margin:.1rem .2rem">${escHtml(r.type)}/${escHtml(r.id)}</code>`
         ).join("") + (extra > 0 ? `<span style="font-size:.75rem;color:#94a3b8"> … 另 ${extra} 筆</span>` : "");
+        const zhTitle = RULE_ZH[rule] ? RULE_ZH[rule].split('。')[0] : rule;
         html += `
           <div class="card ${sev}" id="${cardId}">
             <div class="card-header" onclick="toggleCard('${cardId}')">
-              <span class="card-id" style="font-family:monospace">[${escHtml(rule)}]</span>
+              <span class="card-id">
+                <span style="font-size:.82rem;font-weight:600">${escHtml(zhTitle)}</span>
+                <span class="issue-rule" style="display:block;margin-top:.1rem">[${escHtml(rule)}]</span>
+              </span>
               <span class="card-badges"><span class="mini-badge ${mbClass}">×${resources.length}</span><span class="chevron" id="${cardId}-chev">▲</span></span>
             </div>
             <div class="card-body open" id="${cardId}-body">
