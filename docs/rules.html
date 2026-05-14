@@ -158,7 +158,7 @@
       <strong>離線優先設計</strong>
       所有驗證邏輯均在瀏覽器本地執行，不呼叫任何外部 API，資料不會離開你的裝置。<br>
       HL7 value sets（status、gender、category 等固定值域）已完整內嵌。<br>
-      LOINC 代碼集僅收錄 EHR-FHIR-BRIDGE 已知的約 36 個常用代碼，未收錄的代碼會標示為 INFO（非 ERROR），建議至 <a href="https://loinc.org" target="_blank">loinc.org</a> 確認。
+      LOINC 代碼集收錄 NHI 健康存摺完整醫令對應的 129 個代碼（來源：<a href="https://build.fhir.org/ig/TWNHIFHIR/pas/ConceptMap-nhi-loinc.html" target="_blank">TWNHIFHIR PAS IG ConceptMap-nhi-loinc</a>），涵蓋台灣健保所有常規檢驗項目。未收錄的代碼會標示為 INFO（非 ERROR），建議至 <a href="https://loinc.org" target="_blank">loinc.org</a> 確認。
     </div>
 
     <div class="limit-box">
@@ -166,7 +166,7 @@
       本驗證器針對 EHR-FHIR-BRIDGE 產生的台灣 NHI 資料設計，無法取代完整的 FHIR 規範驗證器。以下項目<strong>不在</strong>本驗證器的檢查範圍：
       <ul>
         <li><strong>醫療術語代碼內容</strong>：ICD-10（Condition）、SNOMED CT、RxNorm、ATC、UCUM 單位代碼的<em>合法性</em>均未驗證。我們只驗格式和系統 URI，不驗代碼是否真的存在於術語資料庫。</li>
-        <li><strong>LOINC</strong>：只收錄約 36 個代碼。若 Observation 使用其他 LOINC 代碼，僅會標 INFO，無法判斷代碼是否正確。</li>
+        <li><strong>LOINC</strong>：收錄 NHI 健康存摺已知的 129 個代碼（TWNHIFHIR PAS IG ConceptMap），涵蓋台灣健保常規檢驗。非 NHI 系統產生的 Observation 若使用其他 LOINC 代碼，僅標 INFO，無法判斷是否正確。</li>
         <li><strong>FHIRPath invariant</strong>：FHIR R4 規範為每種資源定義了大量的 FHIRPath 約束條件（如 <code>obs-6</code>：有 <code>value[x]</code> 就不能有 <code>dataAbsentReason</code>），本驗證器均未實作。</li>
         <li><strong>最大 cardinality</strong>：僅驗「欄位是否存在」，不驗「是否填了超過允許數量」（如 <code>Patient.birthDate</code> 只允許一個）。</li>
         <li><strong>dateTime 格式</strong>：僅驗 <code>Patient.birthDate</code> 的格式，其他日期時間欄位（<code>effectiveDateTime</code>、<code>authoredOn</code>、<code>issued</code> 等）的 ISO 8601 格式未驗。</li>
